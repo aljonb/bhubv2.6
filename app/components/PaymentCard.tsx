@@ -12,7 +12,7 @@ interface PaymentCardProps {
 }
 
 export function PaymentCard({
-  id,
+  id: _,
   date,
   service,
   barberName,

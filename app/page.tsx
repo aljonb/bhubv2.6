@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import Image from 'next/image';
 import { SignInButton, SignUpButton, useAuth } from '@clerk/nextjs';
 
 export default function Home() {

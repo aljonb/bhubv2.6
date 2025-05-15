@@ -62,8 +62,10 @@ const generateTimeSlots = (): string[] => {
 
 const TIME_SLOTS = generateTimeSlots();
 
+// This interface is intentionally empty and only used for typing
+// We keep it for future extensibility
 interface CalendarProps {
-  // Component currently doesn't accept any props
+  /* This component currently doesn't require props */
 }
 
 const Calendar = ({}: CalendarProps) => {
