@@ -243,6 +243,7 @@ const Calendar = ({}: CalendarProps) => {
           setSelectedService('Barber'); // Reset to default
           setSelectedTime('09:00'); // Reset time for next entry
           setShowModal(false); // Close the modal after successful booking
+          handlePaymentRedirect();
         } catch (error) {
           console.error('Exception in addAppointment:', error);
           alert(`Failed to save appointment: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -352,6 +353,11 @@ const Calendar = ({}: CalendarProps) => {
   if (isLoading) {
     return <div className="p-4 max-w-4xl mx-auto">Loading appointments...</div>;
   }
+
+  // After successful booking
+  const handlePaymentRedirect = () => {
+    window.location.href = "https://buy.stripe.com/test_fZu28t2Sn0Z735EdYC4Rq00";
+  };
 
   return (
     <div className="p-4 max-w-4xl mx-auto">
