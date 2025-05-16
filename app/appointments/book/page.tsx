@@ -22,6 +22,7 @@ interface Appointment {
   serviceType: ServiceType;
   date: string; // ISO date string
   time?: string; // Time in HH:MM format
+  userId: string; // Add this field to track which user owns each appointment
 }
 
 interface CalendarDay {
@@ -99,23 +100,16 @@ const Calendar = ({}: CalendarProps) => {
       setError(null);
       
       try {
-        // Debug user state
-        console.log('User loaded:', isUserLoaded);
-        console.log('User authenticated:', !!user);
-        
         if (!user) {
           console.log('No user logged in - skipping appointment fetch');
           setIsLoading(false);
           return;
         }
         
-        // Log user ID being used
-        console.log('Fetching appointments for user ID:', user.id);
-        
+        // Updated query to fetch ALL appointments, not just the current user's
         const { data, error } = await supabase
           .from('appointments')
-          .select('*')
-          .eq('user_id', user.id);
+          .select('*');
           
         if (error) {
           console.error('Supabase error details:', error);
@@ -125,12 +119,12 @@ const Calendar = ({}: CalendarProps) => {
         
         console.log('Appointments fetched:', data?.length || 0);
         
-        // Transform data to match our Appointment interface
         const formattedAppointments: Appointment[] = (data || []).map(item => ({
           id: item.id,
           serviceType: item.service_type as ServiceType,
           date: item.date,
-          time: item.time ? item.time.substring(0, 5) : undefined // Converting from "HH:MM:SS" to "HH:MM"
+          time: item.time ? item.time.substring(0, 5) : undefined,
+          userId: item.user_id // Add this field to track which user owns each appointment
         }));
         
         setAppointments(formattedAppointments);
@@ -203,6 +197,13 @@ const Calendar = ({}: CalendarProps) => {
       
       if (timeSlotAvailable) {
         try {
+          console.log('Attempting to save appointment with:', {
+            user_id: user.id,
+            service_type: selectedService,
+            date: dateString,
+            time: selectedTime
+          });
+          
           // Add to Supabase
           const { data, error } = await supabase
             .from('appointments')
@@ -214,29 +215,37 @@ const Calendar = ({}: CalendarProps) => {
                 time: selectedTime
               }
             ])
-            .select('id')
-            .single();
+            .select('id');
             
           if (error) {
-            console.error('Error saving appointment:', error);
-            alert('Failed to save appointment. Please try again.');
+            console.error('Supabase error details:', error);
+            alert(`Failed to save appointment: ${error.message || 'Unknown error'}`);
+            return;
+          }
+          
+          if (!data || data.length === 0) {
+            console.error('No data returned from insert operation');
+            alert('Failed to save appointment: No data returned');
             return;
           }
           
           // Add to local state
           const appointment: Appointment = {
-            id: data.id,
+            id: data[0].id,
             serviceType: selectedService,
             date: dateString,
-            time: selectedTime
+            time: selectedTime,
+            userId: user.id
           };
           
+          console.log('Successfully saved appointment:', appointment);
           setAppointments([...appointments, appointment]);
           setSelectedService('Barber'); // Reset to default
           setSelectedTime('09:00'); // Reset time for next entry
+          setShowModal(false); // Close the modal after successful booking
         } catch (error) {
-          console.error('Error in addAppointment:', error);
-          alert('Failed to save appointment. Please try again.');
+          console.error('Exception in addAppointment:', error);
+          alert(`Failed to save appointment: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       } else {
         alert('This time slot is already booked. Please select another time.');
@@ -247,6 +256,14 @@ const Calendar = ({}: CalendarProps) => {
   // Delete appointment function
   const deleteAppointment = async (id: string) => {
     try {
+      const appointment = appointments.find(app => app.id === id);
+      
+      // Check if appointment exists and belongs to current user
+      if (!appointment || appointment.userId !== user?.id) {
+        alert('You can only delete your own appointments');
+        return;
+      }
+      
       const { error } = await supabase
         .from('appointments')
         .delete()
@@ -258,7 +275,6 @@ const Calendar = ({}: CalendarProps) => {
         return;
       }
       
-      // Update local state
       setAppointments(appointments.filter(app => app.id !== id));
     } catch (error) {
       console.error('Error in deleteAppointment:', error);
@@ -297,13 +313,18 @@ const Calendar = ({}: CalendarProps) => {
           <span className="mr-1">{getServiceIcon(appointment.serviceType)}</span>
           {appointment.serviceType}
         </div>
+        {appointment.userId === user?.id && (
+          <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Your booking</span>
+        )}
       </div>
-      <button 
-        onClick={() => deleteAppointment(appointment.id)}
-        className="text-red-600 hover:text-red-800"
-      >
-        Delete
-      </button>
+      {appointment.userId === user?.id && (
+        <button 
+          onClick={() => deleteAppointment(appointment.id)}
+          className="text-red-600 hover:text-red-800"
+        >
+          Delete
+        </button>
+      )}
     </div>
   ));
   
