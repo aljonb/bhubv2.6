@@ -45,7 +45,7 @@ export default function ProfilePage() {
 
       {activeTab === 'account' && (
         <div className="space-y-6">
-          <UserProfile />
+          <UserProfile routing="hash" />
         </div>
       )}
 
