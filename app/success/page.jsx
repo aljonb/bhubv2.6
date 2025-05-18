@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
-
 import { stripe } from '../lib/stripe'
+import SuccessMessage from '../components/SuccessMessage'
 
 export default async function Success({ searchParams }) {
   const { session_id } = await searchParams
@@ -21,13 +21,7 @@ export default async function Success({ searchParams }) {
 
   if (status === 'complete') {
     return (
-      <section id="success">
-        <p>
-          We appreciate your business! A confirmation email will be sent to{' '}
-          {customerEmail}. If you have any questions, please email{' '}
-        </p>
-        <a href="mailto:orders@example.com">orders@example.com</a>.
-      </section>
+      <SuccessMessage email={customerEmail} redirectUrl="/appointments" />
     )
   }
 }

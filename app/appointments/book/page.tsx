@@ -189,7 +189,7 @@ const Calendar = ({}: CalendarProps) => {
     }
     
     if (selectedDate) {
-      // Check if an appointment already exists at this date and time
+      // Check if slot is available
       const dateString = selectedDate.toISODate() as string;
       const timeSlotAvailable = !appointments.some(
         appointment => appointment.date === dateString && appointment.time === selectedTime
@@ -197,14 +197,7 @@ const Calendar = ({}: CalendarProps) => {
       
       if (timeSlotAvailable) {
         try {
-          console.log('Attempting to save appointment with:', {
-            user_id: user.id,
-            service_type: selectedService,
-            date: dateString,
-            time: selectedTime
-          });
-          
-          // Add to Supabase
+          // Add to Supabase with pending status
           const { data, error } = await supabase
             .from('appointments')
             .insert([
@@ -212,7 +205,8 @@ const Calendar = ({}: CalendarProps) => {
                 user_id: user.id,
                 service_type: selectedService,
                 date: dateString,
-                time: selectedTime
+                time: selectedTime,
+                payment_status: 'pending'
               }
             ])
             .select('id');
@@ -229,24 +223,13 @@ const Calendar = ({}: CalendarProps) => {
             return;
           }
           
-          // Add to local state
-          const appointment: Appointment = {
-            id: data[0].id,
-            serviceType: selectedService,
-            date: dateString,
-            time: selectedTime,
-            userId: user.id
-          };
+          const appointmentId = data[0].id;
           
-          console.log('Successfully saved appointment:', appointment);
-          setAppointments([...appointments, appointment]);
-          setSelectedService('Barber'); // Reset to default
-          setSelectedTime('09:00'); // Reset time for next entry
-          setShowModal(false); // Close the modal after successful booking
-          handlePaymentRedirect();
-        } catch (error) {
-          console.error('Exception in addAppointment:', error);
-          alert(`Failed to save appointment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          // Redirect to payment with the appointment ID
+          window.location.href = `/api/checkout_sessions?appointment_id=${appointmentId}`;
+        } catch (err) {
+          console.error('Error creating appointment:', err);
+          alert(`Failed to create appointment: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
       } else {
         alert('This time slot is already booked. Please select another time.');
@@ -353,11 +336,6 @@ const Calendar = ({}: CalendarProps) => {
   if (isLoading) {
     return <div className="p-4 max-w-4xl mx-auto">Loading appointments...</div>;
   }
-
-  // After successful booking
-  const handlePaymentRedirect = () => {
-    window.location.href = "https://buy.stripe.com/test_fZu28t2Sn0Z735EdYC4Rq00";
-  };
 
   return (
     <div className="p-4 max-w-4xl mx-auto">
