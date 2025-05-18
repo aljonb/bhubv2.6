@@ -157,7 +157,7 @@ const AppointmentsPage = () => {
         </div>
       ) : appointments.length === 0 ? (
         <div className="bg-gray-100 border border-gray-300 p-6 rounded-lg text-center">
-          <p className="text-gray-600 mb-4">You don't have any appointments yet.</p>
+          <p className="text-gray-600 mb-4">You don&apos;t have any appointments yet.</p>
           <Link href="/appointments/book" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
             Book Your First Appointment
           </Link>
