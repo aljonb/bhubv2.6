@@ -225,8 +225,29 @@ const Calendar = ({}: CalendarProps) => {
           
           const appointmentId = data[0].id;
           
-          // Redirect to payment with the appointment ID
-          window.location.href = `/api/checkout_sessions?appointment_id=${appointmentId}`;
+          // Use your connected account ID here
+          const connectedAccountId = 'acct_1RRK36RrE9xuSNyI';
+          
+          // Call our API with appointment ID and connected account
+          const response = await fetch('/api/checkout_sessions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              appointmentId,
+              connectedAccountId
+            }),
+          });
+          
+          const { url, error: checkoutError } = await response.json();
+          
+          if (url) {
+            window.location.href = url;
+          } else {
+            console.error('Error creating checkout session:', checkoutError);
+            alert(`Failed to create checkout session: ${checkoutError || 'Unknown error'}`);
+          }
         } catch (err) {
           console.error('Error creating appointment:', err);
           alert(`Failed to create appointment: ${err instanceof Error ? err.message : 'Unknown error'}`);

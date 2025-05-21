@@ -7,7 +7,7 @@ export async function POST(req) {
   try {
     // Get the request body
     const body = await req.json();
-    const { appointmentId } = body;
+    const { appointmentId, connectedAccountId } = body;
     
     if (!appointmentId) {
       return NextResponse.json(
@@ -39,6 +39,12 @@ export async function POST(req) {
       cancel_url: `${origin}/appointments?canceled=true`,
       metadata: {
         appointment_id: appointmentId,
+      },
+      payment_intent_data: {
+        transfer_data: {
+          destination: connectedAccountId,
+        },
+        application_fee_amount: 400,
       },
     });
     
