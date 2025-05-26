@@ -1,13 +1,24 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
+import { auth } from '@clerk/nextjs/server'
 
 import { stripe } from '../../lib/stripe'
 
 export async function POST(req) {
   try {
+    // Get the authenticated user from Clerk
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     // Get the request body
     const body = await req.json();
-    const { appointmentId, connectedAccountId } = body;
+    const { appointmentId, connectedAccountId, serviceType, barberName } = body;
     
     if (!appointmentId) {
       return NextResponse.json(
@@ -41,6 +52,12 @@ export async function POST(req) {
         appointment_id: appointmentId,
       },
       payment_intent_data: {
+        metadata: {
+          appointment_id: appointmentId,
+          user_id: userId,
+          service_type: serviceType || 'Barber Service',
+          barber_name: barberName || 'Professional Barber',
+        },
         transfer_data: {
           destination: connectedAccountId,
         },

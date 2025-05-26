@@ -7,7 +7,12 @@ interface PaymentCardProps {
   barberName: string;
   amount: number;
   tip?: number;
-  paymentMethod: 'card' | 'cash' | 'apple_pay';
+  total: number;
+  paymentMethod: 'card' | 'cash' | 'apple_pay' | 'google_pay' | 'unknown';
+  status: 'succeeded' | 'pending' | 'failed' | 'canceled';
+  receiptUrl?: string;
+  appointmentId?: string;
+  stripePaymentIntentId: string;
   barberImage?: string;
 }
 
@@ -18,22 +23,27 @@ export function PaymentCard({
   barberName,
   amount,
   tip = 0,
+  total,
   paymentMethod,
+  status,
+  receiptUrl,
   barberImage = '/icons/profile.svg',
 }: PaymentCardProps) {
   const paymentMethodIcon = {
     card: '/icons/credit-card.svg',
     cash: '/icons/dollar-sign.svg',
     apple_pay: '/icons/apple.svg',
+    google_pay: '/icons/google.svg',
+    unknown: '/icons/credit-card.svg',
   };
 
   const paymentMethodLabel = {
     card: 'Card',
     cash: 'Cash',
     apple_pay: 'Apple Pay',
+    google_pay: 'Google Pay',
+    unknown: 'Unknown',
   };
-
-  const total = amount + tip;
 
   return (
     <div className="card flex flex-col md:flex-row items-center md:items-start gap-4 p-4">
@@ -71,7 +81,20 @@ export function PaymentCard({
             </p>
           )}
         </div>
-        <button className="btn-secondary btn-sm mt-2">View Receipt</button>
+        {receiptUrl ? (
+          <a 
+            href={receiptUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="btn-secondary btn-sm mt-2 inline-block text-center"
+          >
+            View Receipt
+          </a>
+        ) : (
+          <button className="btn-secondary btn-sm mt-2" disabled>
+            No Receipt
+          </button>
+        )}
       </div>
     </div>
   );

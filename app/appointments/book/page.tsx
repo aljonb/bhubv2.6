@@ -236,7 +236,9 @@ const Calendar = ({}: CalendarProps) => {
             },
             body: JSON.stringify({
               appointmentId,
-              connectedAccountId
+              connectedAccountId,
+              serviceType: selectedService,
+              barberName: 'Professional Barber' // You can make this dynamic later
             }),
           });
           

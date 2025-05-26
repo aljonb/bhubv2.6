@@ -2,51 +2,53 @@
 
 import { useState } from 'react';
 import { PaymentCard } from '../components/PaymentCard';
-
-// Sample payment data
-const paymentHistory = [
-  {
-    id: '1',
-    date: 'Dec 5, 2023',
-    service: 'Haircut & Beard Trim',
-    barberName: 'Mike Johnson',
-    amount: 40,
-    tip: 8,
-    paymentMethod: 'card' as const,
-    barberImage: 'https://randomuser.me/api/portraits/men/32.jpg'
-  },
-  {
-    id: '2',
-    date: 'Nov 20, 2023',
-    service: 'Haircut',
-    barberName: 'Mike Johnson',
-    amount: 30,
-    tip: 5,
-    paymentMethod: 'apple_pay' as const,
-    barberImage: 'https://randomuser.me/api/portraits/men/32.jpg'
-  },
-  {
-    id: '3',
-    date: 'Nov 5, 2023',
-    service: 'Hair Coloring',
-    barberName: 'David Smith',
-    amount: 60,
-    tip: 12,
-    paymentMethod: 'cash' as const,
-    barberImage: 'https://randomuser.me/api/portraits/men/44.jpg'
-  }
-];
+import { usePayments } from '../hooks/usePayments';
 
 export default function PaymentsPage() {
   const [filter, setFilter] = useState('all');
+  const { payments, stats, loading, error, refetch } = usePayments({ includeStats: true });
   
   // Filter payments by payment method if needed
   const filteredPayments = filter === 'all' 
-    ? paymentHistory 
-    : paymentHistory.filter(payment => payment.paymentMethod === filter);
+    ? payments 
+    : payments.filter(payment => payment.paymentMethod === filter);
   
-  // Calculate total spent
-  const totalSpent = paymentHistory.reduce((total, payment) => total + payment.amount + (payment.tip || 0), 0);
+  // Use stats from Stripe or calculate from filtered payments
+  const totalSpent = stats?.totalSpent || 0;
+
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-semibold">Payments</h1>
+          <p className="text-gray-600 mt-1">Loading your payment history...</p>
+        </div>
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-semibold">Payments</h1>
+          <p className="text-gray-600 mt-1">View your payment history</p>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <p className="text-red-800">Error loading payments: {error}</p>
+          <button 
+            onClick={refetch}
+            className="mt-2 btn-primary btn-sm"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -63,10 +65,9 @@ export default function PaymentsPage() {
         </div>
         
         <div className="card p-6">
-          <h2 className="text-lg font-medium">Upcoming Payment</h2>
-          <p className="text-3xl font-bold mt-2">$40.00</p>
-          <p className="text-sm text-gray-500 mt-1">Haircut & Beard Trim on Dec 17</p>
-          <button className="btn-primary btn-sm mt-4">Pay Now</button>
+          <h2 className="text-lg font-medium">Total Transactions</h2>
+          <p className="text-3xl font-bold mt-2">{stats?.totalTransactions || 0}</p>
+          <p className="text-sm text-gray-500 mt-1">Completed payments</p>
         </div>
       </div>
       
@@ -83,6 +84,7 @@ export default function PaymentsPage() {
               <option value="card">Card</option>
               <option value="cash">Cash</option>
               <option value="apple_pay">Apple Pay</option>
+              <option value="google_pay">Google Pay</option>
             </select>
           </div>
         </div>
@@ -98,13 +100,21 @@ export default function PaymentsPage() {
                 barberName={payment.barberName}
                 amount={payment.amount}
                 tip={payment.tip}
+                total={payment.total}
                 paymentMethod={payment.paymentMethod}
+                status={payment.status}
+                receiptUrl={payment.receiptUrl}
+                appointmentId={payment.appointmentId}
+                stripePaymentIntentId={payment.stripePaymentIntentId}
                 barberImage={payment.barberImage}
               />
             ))
           ) : (
             <div className="text-center py-12">
               <p className="text-gray-500">No payment history found</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Your completed payments will appear here
+              </p>
             </div>
           )}
         </div>
