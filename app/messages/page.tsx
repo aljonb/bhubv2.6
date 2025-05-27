@@ -1,171 +1,137 @@
 'use client';
 
-import { useState } from 'react';
-import Image from 'next/image';
-import { ChatMessage } from '../components/ChatMessage';
+import { useUser } from '@clerk/nextjs';
+import { useState, useEffect } from 'react';
+import { usePersistentChat } from '@/hooks/use-persistent-chat';
+import { BarberDashboard } from '../components/BarberDashboard';
 
-// Sample barbers for the messaging interface
-const barbers = [
-  { id: '1', name: 'Mike Johnson', image: 'https://randomuser.me/api/portraits/men/32.jpg', lastMessage: 'Your appointment is confirmed for tomorrow at 10 AM.' },
-  { id: '2', name: 'David Smith', image: 'https://randomuser.me/api/portraits/men/44.jpg', lastMessage: 'Looking forward to seeing you on Tuesday!' },
-  { id: '3', name: 'Sarah Wilson', image: 'https://randomuser.me/api/portraits/women/65.jpg', lastMessage: 'Thank you for your visit yesterday.' },
-];
-
-// Sample chat history
-const sampleChatHistory = [
-  { id: '1', message: 'Hi there! I\'d like to confirm my appointment for tomorrow.', sender: 'client' as const, timestamp: '10:15 AM' },
-  { id: '2', message: 'Hello! Yes, you\'re scheduled for a haircut at 10 AM tomorrow.', sender: 'barber' as const, timestamp: '10:17 AM' },
-  { id: '3', message: 'Do I need to bring anything specific?', sender: 'client' as const, timestamp: '10:18 AM' },
-  { id: '4', message: 'No need to bring anything special. Just come as you are!', sender: 'barber' as const, timestamp: '10:20 AM' },
-  { id: '5', message: 'Great, thank you! See you tomorrow.', sender: 'client' as const, timestamp: '10:22 AM' },
-  { id: '6', message: 'Looking forward to it! Have a great day.', sender: 'barber' as const, timestamp: '10:23 AM' },
-];
+const BARBER_EMAIL = 'bushatia777@gmail.com';
 
 export default function MessagesPage() {
-  const [selectedBarber, setSelectedBarber] = useState(barbers[0]);
-  const [messages, setMessages] = useState(sampleChatHistory);
+  const { user, isLoaded } = useUser();
+  const [roomName, setRoomName] = useState('');
   const [newMessage, setNewMessage] = useState('');
 
-  const sendMessage = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isLoaded && user) {
+      const userEmail = user.emailAddresses[0]?.emailAddress;
+      if (userEmail && userEmail !== BARBER_EMAIL) {
+        // Client creates room with barber
+        const emails = [userEmail, BARBER_EMAIL].sort();
+        setRoomName(`chat:${emails.join('|')}`);
+      }
+    }
+  }, [isLoaded, user]);
+
+  const {
+    messages,
+    sendMessage,
+    isConnected,
+    loading
+  } = usePersistentChat({ roomName });
+
+  if (!isLoaded || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+          <p>Please sign in to message the barber</p>
+        </div>
+      </div>
+    );
+  }
+
+  const userEmail = user.emailAddresses[0]?.emailAddress;
+  const isBarber = userEmail === BARBER_EMAIL;
+
+  // Show barber dashboard for barber
+  if (isBarber) {
+    return <BarberDashboard barberEmail={BARBER_EMAIL} />;
+  }
+
+  // Show client chat interface
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!newMessage.trim()) return;
-    
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
-    setMessages([
-      ...messages,
-      {
-        id: (messages.length + 1).toString(),
-        message: newMessage,
-        sender: 'client',
-        timestamp,
-      },
-    ]);
-    
-    setNewMessage('');
-    
-    // Simulate a response from the barber
-    setTimeout(() => {
-      const responses = [
-        'Got it, thanks for letting me know!',
-        'I\'ll make a note of that.',
-        'Perfect! See you at your appointment.',
-        'Is there anything else you need?'
-      ];
-      
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      
-      setMessages(prevMessages => [
-        ...prevMessages,
-        {
-          id: (prevMessages.length + 1).toString(),
-          message: randomResponse,
-          sender: 'barber',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
-    }, 2000);
+    if (newMessage.trim()) {
+      sendMessage(newMessage);
+      setNewMessage('');
+    }
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] overflow-hidden">
-      {/* Barber List Sidebar */}
-      <div className="w-80 border-r border-[var(--secondary)] overflow-y-auto">
-        <div className="p-4 border-b border-[var(--secondary)]">
-          <h2 className="text-lg font-semibold">Messages</h2>
-        </div>
-        <div>
-          {barbers.map((barber) => (
-            <div
-              key={barber.id}
-              className={`flex items-center gap-4 p-4 cursor-pointer hover:bg-[var(--accent)] transition-colors ${
-                selectedBarber.id === barber.id ? 'bg-[var(--accent)]' : ''
-              }`}
-              onClick={() => setSelectedBarber(barber)}
-            >
-              <div className="relative h-12 w-12 overflow-hidden rounded-full">
-                <Image
-                  src={barber.image}
-                  alt={barber.name}
-                  width={48}
-                  height={48}
-                  className="object-cover"
-                />
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <h3 className="font-medium">{barber.name}</h3>
-                <p className="text-sm text-gray-500 truncate">{barber.lastMessage}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Chat Header */}
-        <div className="flex items-center gap-4 p-4 border-b border-[var(--secondary)]">
-          <div className="relative h-10 w-10 overflow-hidden rounded-full">
-            <Image
-              src={selectedBarber.image}
-              alt={selectedBarber.name}
-              width={40}
-              height={40}
-              className="object-cover"
-            />
+    <div className="max-w-4xl mx-auto p-4 h-[calc(100vh-4rem)]">
+      <div className="border border-[var(--secondary)] rounded-lg h-full overflow-hidden">
+        <div className="h-full flex flex-col">
+          {/* Chat Header */}
+          <div className="border-b border-[var(--secondary)] p-4 bg-[var(--accent)]">
+            <h3 className="font-semibold">Chat with Barber</h3>
+            <p className="text-sm text-gray-600">
+              {isConnected ? '🟢 Connected' : '🔴 Disconnected'} • 
+              {messages.length} messages
+            </p>
           </div>
-          <div>
-            <h3 className="font-medium">{selectedBarber.name}</h3>
-            <p className="text-xs text-gray-500">Barber</p>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground">
+                No messages yet. Start the conversation!
+              </div>
+            ) : (
+              messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${
+                    message.sender_email === userEmail ? 'justify-end' : 'justify-start'
+                  }`}
+                >
+                  <div
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      message.sender_email === userEmail
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 text-gray-900'
+                    }`}
+                  >
+                    <p className="text-sm">{message.content}</p>
+                    <p className="text-xs opacity-75 mt-1">
+                      {new Date(message.created_at).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-        </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {messages.map((msg) => (
-            <ChatMessage
-              key={msg.id}
-              message={msg.message}
-              sender={msg.sender}
-              timestamp={msg.timestamp}
-              senderImage={msg.sender === 'barber' ? selectedBarber.image : undefined}
-            />
-          ))}
-        </div>
-
-        {/* Message Input */}
-        <form onSubmit={sendMessage} className="border-t border-[var(--secondary)] p-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Type your message..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              className="flex-1 rounded-full border border-[var(--secondary)] bg-[var(--accent)] px-4 py-2"
-            />
-            <button
-              type="submit"
-              className="rounded-full bg-[var(--primary)] p-2 text-white"
-              disabled={!newMessage.trim()}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          {/* Message Input */}
+          <div className="border-t border-[var(--secondary)] p-4">
+            <form onSubmit={handleSendMessage} className="flex gap-2">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type your message..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!isConnected}
+              />
+              <button
+                type="submit"
+                disabled={!isConnected || !newMessage.trim()}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
               >
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </button>
+                Send
+              </button>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
-} 
+}
