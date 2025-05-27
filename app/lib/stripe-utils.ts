@@ -187,4 +187,59 @@ export async function getOrCreateStripeCustomer(userId: string, email: string, n
     console.error('Error creating/getting Stripe customer:', error);
     throw new Error('Failed to manage customer');
   }
+}
+
+/**
+ * Get all payments across all users (admin only)
+ */
+export async function getAllPayments(limit: number = 1000): Promise<StripePayment[]> {
+  try {
+    const paymentIntents = await stripe.paymentIntents.list({
+      limit,
+      expand: ['data.payment_method'],
+    });
+
+    return paymentIntents.data.map(transformStripePaymentIntent);
+  } catch (error) {
+    console.error('Error fetching all payments:', error);
+    throw new Error('Failed to fetch payment data');
+  }
+}
+
+/**
+ * Calculate total revenue and statistics (admin only)
+ */
+export function calculateTotalRevenue(payments: PaymentHistoryItem[]): {
+  totalRevenue: number;
+  totalTransactions: number;
+  averageTransaction: number;
+  revenueByMonth: { [key: string]: number };
+  revenueByBarber: { [key: string]: number };
+} {
+  const succeededPayments = payments.filter(p => p.status === 'succeeded');
+  
+  const totalRevenue = succeededPayments.reduce((sum, payment) => sum + payment.total, 0);
+  const totalTransactions = succeededPayments.length;
+  const averageTransaction = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+  
+  // Group by month
+  const revenueByMonth: { [key: string]: number } = {};
+  succeededPayments.forEach(payment => {
+    const month = new Date(payment.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    revenueByMonth[month] = (revenueByMonth[month] || 0) + payment.total;
+  });
+  
+  // Group by barber
+  const revenueByBarber: { [key: string]: number } = {};
+  succeededPayments.forEach(payment => {
+    revenueByBarber[payment.barberName] = (revenueByBarber[payment.barberName] || 0) + payment.total;
+  });
+  
+  return {
+    totalRevenue,
+    totalTransactions,
+    averageTransaction,
+    revenueByMonth,
+    revenueByBarber,
+  };
 } 
