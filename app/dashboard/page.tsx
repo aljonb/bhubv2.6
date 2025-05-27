@@ -1,10 +1,43 @@
 'use client';
 
+import { useUser } from '@clerk/nextjs';
+import { useState, useEffect } from 'react';
 import { DashboardCard } from "../components/DashboardCard";
 import { AppointmentCard } from "../components/AppointmentCard";
+import AdminDashboard from "../admin/page";
+
+// Define admin email addresses (same as in your API route)
+const ADMIN_EMAILS = [
+  'bushatia777@gmail.com', // Replace with actual barber email
+  // Add more admin emails as needed
+];
 
 export default function Dashboard() {
-  // This would come from your API in a real app
+  const { user, isLoaded } = useUser();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (isLoaded && user) {
+      const userEmail = user.emailAddresses[0]?.emailAddress;
+      setIsAdmin(userEmail ? ADMIN_EMAILS.includes(userEmail) : false);
+    }
+  }, [isLoaded, user]);
+
+  // Show loading state while checking authentication
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  // If user is admin/barber, show admin dashboard
+  if (isAdmin) {
+    return <AdminDashboard />;
+  }
+
+  // Regular client dashboard
   const upcomingAppointments = [
     {
       id: '1',
