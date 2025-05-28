@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DateTime, Info, IANAZone } from 'luxon';
 import { useUser } from '@clerk/nextjs';
 import { createClient } from '@supabase/supabase-js';
@@ -29,6 +29,173 @@ interface CalendarDay {
   date: DateTime;
   isCurrentMonth: boolean;
 }
+
+// User details interface
+interface UserDetails {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+// User cache to avoid repeated API calls
+const userCache = new Map<string, UserDetails | 'not_found' | 'error'>();
+const pendingRequests = new Map<string, Promise<UserDetails | 'not_found' | 'error'>>();
+
+// Rate limiting: delay between requests
+const requestDelay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 100; // 100ms between requests
+
+// Function to fetch user details with caching and rate limiting
+const fetchUserDetailsWithCache = async (userId: string): Promise<UserDetails | 'not_found' | 'error'> => {
+  // Check cache first
+  if (userCache.has(userId)) {
+    return userCache.get(userId)!;
+  }
+
+  // Check if request is already pending
+  if (pendingRequests.has(userId)) {
+    return pendingRequests.get(userId)!;
+  }
+
+  // Create new request with rate limiting
+  const requestPromise = (async () => {
+    try {
+      // Rate limiting
+      const now = Date.now();
+      const timeSinceLastRequest = now - lastRequestTime;
+      if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+        await requestDelay(MIN_REQUEST_INTERVAL - timeSinceLastRequest);
+      }
+      lastRequestTime = Date.now();
+
+      console.log(`Fetching details for user: ${userId}`);
+      const response = await fetch(`/api/users/${userId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`User details received for ${userId}:`, data);
+        userCache.set(userId, data);
+        return data;
+      } else if (response.status === 404) {
+        console.log(`User ${userId} not found`);
+        userCache.set(userId, 'not_found');
+        return 'not_found';
+      } else if (response.status === 429) {
+        console.log(`Rate limited for user ${userId}, will retry later`);
+        // Don't cache rate limit errors, allow retry later
+        return 'error';
+      } else {
+        console.error(`Failed to fetch user details for ${userId}:`, {
+          status: response.status,
+          statusText: response.statusText
+        });
+        userCache.set(userId, 'error');
+        return 'error';
+      }
+    } catch (error) {
+      console.error(`Network error fetching user details for ${userId}:`, error);
+      userCache.set(userId, 'error');
+      return 'error';
+    } finally {
+      pendingRequests.delete(userId);
+    }
+  })();
+
+  pendingRequests.set(userId, requestPromise);
+  return requestPromise;
+};
+
+// User info component with improved caching
+const UserInfo = ({ userId, isBarber }: { userId: string; isBarber: boolean }) => {
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!isBarber || !userId) {
+      return;
+    }
+
+    const loadUserDetails = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const result = await fetchUserDetailsWithCache(userId);
+        
+        if (!mounted.current) return; // Component unmounted
+        
+        if (result === 'not_found') {
+          setError('User not found');
+        } else if (result === 'error') {
+          setError('Error loading user');
+        } else {
+          setUserDetails(result);
+        }
+      } catch (err) {
+        if (!mounted.current) return;
+        console.error(`Error loading user ${userId}:`, err);
+        setError('Network error');
+      } finally {
+        if (mounted.current) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadUserDetails();
+  }, [userId, isBarber]);
+
+  if (!isBarber) {
+    return null; // Regular users don't see other users' names
+  }
+
+  if (loading) {
+    return <span className="ml-2 text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">Loading...</span>;
+  }
+
+  // If there was an error fetching user details
+  if (error) {
+    if (error.includes('not found')) {
+      return (
+        <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded" title={`User ${userId} not found in Clerk`}>
+          Former User
+        </span>
+      );
+    }
+    
+    return (
+      <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-1 rounded" title={error}>
+        Error Loading User
+      </span>
+    );
+  }
+
+  if (!userDetails) {
+    return (
+      <span className="ml-2 text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
+        User ID: {userId.substring(0, 8)}...
+      </span>
+    );
+  }
+
+  // Create full name, handling cases where lastName might be empty
+  const fullName = `${userDetails.firstName}${userDetails.lastName ? ' ' + userDetails.lastName : ''}`.trim();
+  const displayName = fullName || userDetails.email.split('@')[0] || 'Unknown User';
+
+  return (
+    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded" title={userDetails.email}>
+      {displayName}
+    </span>
+  );
+};
 
 // Common timezones for the dropdown
 const COMMON_TIMEZONES = [
@@ -412,9 +579,7 @@ const AppointmentsPage = () => {
                         <span className="mr-1">{getServiceIcon(appointment.serviceType)}</span>
                         {appointment.serviceType}
                       </div>
-                      <span className="ml-2 text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                        User ID: {appointment.userId.substring(0, 8)}...
-                      </span>
+                      <UserInfo userId={appointment.userId} isBarber={isBarber} />
                     </div>
                     <button 
                       onClick={() => deleteAppointment(appointment.id)}
@@ -445,4 +610,4 @@ const AppointmentsPage = () => {
   );
 };
 
-export default AppointmentsPage; 
+export default AppointmentsPage;
