@@ -45,10 +45,16 @@ export async function GET(request: NextRequest) {
         const emails = roomName.replace('chat:', '').split('|') as string[];
         const clientEmail = emails.find(email => email !== BARBER_EMAIL);
         
+        // Find the client's name from any message they sent in this conversation
+        const clientMessage = data?.find(msg => 
+          msg.room_name === roomName && msg.sender_email === clientEmail
+        );
+        const clientName = clientMessage?.sender_name || clientEmail?.split('@')[0] || 'Client';
+        
         conversationsMap.set(roomName, {
           roomName,
           clientEmail,
-          clientName: message.sender_email === clientEmail ? message.sender_name : 'Client',
+          clientName,
           lastMessage: message.content,
           lastMessageTime: message.created_at,
           lastSender: message.sender_email,

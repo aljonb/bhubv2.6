@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       .insert({
         content,
         sender_email: userEmail,
-        sender_name: user.firstName || userEmail.split('@')[0],
+        sender_name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || userEmail.split('@')[0],
         room_name: roomName,
       })
       .select()
