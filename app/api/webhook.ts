@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '../lib/stripe';
 import { createClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
   
   // Handle the event
   if (event.type === 'payment_intent.succeeded') {
-    const paymentIntent = event.data.object;
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
     
     try {
       // Extract appointment ID from metadata (you'll need to add this when creating payment)
