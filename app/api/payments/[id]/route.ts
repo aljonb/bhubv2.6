@@ -4,7 +4,7 @@ import { getPaymentIntent, transformToPaymentHistory } from '../../../lib/stripe
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get the authenticated user from Clerk
@@ -17,7 +17,9 @@ export async function GET(
       );
     }
 
-    const paymentIntentId = params.id;
+    // Await the params to get the id
+    const { id } = await params;
+    const paymentIntentId = id;
 
     if (!paymentIntentId) {
       return NextResponse.json(
