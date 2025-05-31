@@ -3,6 +3,17 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 
 const BARBER_EMAIL = 'bushatia777@gmail.com';
 
+// Define types for Clerk errors
+interface ClerkError extends Error {
+  status?: number;
+  code?: string;
+}
+
+// Type guard to check if error is a Clerk error
+function isClerkError(error: unknown): error is ClerkError {
+  return error instanceof Error && ('status' in error || 'code' in error);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
@@ -41,23 +52,25 @@ export async function GET(
     
     return NextResponse.json(userDetails);
   } catch (error: unknown) {
+    const clerkError = isClerkError(error) ? error : null;
+    
     console.error('Error fetching user details:', {
       userId: params.userId,
       error: error instanceof Error ? error.message : 'Unknown error',
-      status: (error as any)?.status,
-      code: (error as any)?.code,
+      status: clerkError?.status,
+      code: clerkError?.code,
       details: error
     });
     
     // Handle Clerk-specific errors
-    if ((error as any)?.code === 'user_not_found' || (error as any)?.status === 404) {
+    if (clerkError?.code === 'user_not_found' || clerkError?.status === 404) {
       return NextResponse.json({ 
         error: 'User not found in Clerk - user may have been deleted',
         userId: params.userId 
       }, { status: 404 });
     }
     
-    if ((error as any)?.code === 'rate_limit_exceeded') {
+    if (clerkError?.code === 'rate_limit_exceeded') {
       return NextResponse.json({ 
         error: 'Rate limit exceeded - too many requests',
         userId: params.userId 

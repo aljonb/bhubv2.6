@@ -48,7 +48,7 @@ export async function getPaymentsByMetadata(userId: string, limit: number = 100)
 export async function getPaymentIntent(paymentIntentId: string): Promise<StripePayment> {
   try {
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
-      expand: ['data.payment_method', 'data.charges'],
+      expand: ['payment_method', 'charges'],
     });
 
     return transformStripePaymentIntent(paymentIntent);
@@ -63,6 +63,9 @@ export async function getPaymentIntent(paymentIntentId: string): Promise<StripeP
  */
 function transformStripePaymentIntent(paymentIntent: Stripe.PaymentIntent): StripePayment {
   const paymentMethod = paymentIntent.payment_method as Stripe.PaymentMethod;
+  const expandedPaymentIntent = paymentIntent as Stripe.PaymentIntent & {
+    charges: Stripe.ApiList<Stripe.Charge>;
+  };
   
   return {
     id: paymentIntent.id,
@@ -79,7 +82,7 @@ function transformStripePaymentIntent(paymentIntent: Stripe.PaymentIntent): Stri
         last4: paymentMethod.card.last4,
       } : undefined,
     } : undefined,
-    receipt_url: (paymentIntent as any).charges?.data?.[0]?.receipt_url || undefined,
+    receipt_url: expandedPaymentIntent.charges?.data?.[0]?.receipt_url || undefined,
     customer: typeof paymentIntent.customer === 'string' ? paymentIntent.customer : undefined,
   };
 }
