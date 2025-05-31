@@ -2,39 +2,47 @@
 
 import React, { useState, useEffect } from "react";
 
-export default function Refresh({ params }: { params: { id: string } }) {
-  const connectedAccountId = params.id;
+export default function Refresh({ params }: { params: Promise<{ id: string }> }) {
+  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [accountLinkCreatePending, setAccountLinkCreatePending] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (connectedAccountId) {
-      setAccountLinkCreatePending(true);
-      fetch("/api/account_link", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          account: connectedAccountId,
-        }),
-      })
-        .then((response) => response.json())
-        .then((json) => {
-          setAccountLinkCreatePending(false);
+    // Await the params Promise to get the id
+    const getParamsAndFetch = async () => {
+      const { id } = await params;
+      setConnectedAccountId(id);
+      
+      if (id) {
+        setAccountLinkCreatePending(true);
+        fetch("/api/account_link", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            account: id,
+          }),
+        })
+          .then((response) => response.json())
+          .then((json) => {
+            setAccountLinkCreatePending(false);
 
-          const { url, error } = json;
+            const { url, error } = json;
 
-          if (url) {
-            window.location.href = url;
-          }
+            if (url) {
+              window.location.href = url;
+            }
 
-          if (error) {
-            setError(true);
-          }
-        });
-    }
-  }, [connectedAccountId]);
+            if (error) {
+              setError(true);
+            }
+          });
+      }
+    };
+
+    getParamsAndFetch();
+  }, [params]);
 
   return (
     <div className="container">
