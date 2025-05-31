@@ -15,9 +15,9 @@ export default function Connect() {
       </div>
       <div className="content">
         {!connectedAccountId && <h2>Get ready for take off</h2>}
-        {!connectedAccountId && <p>bhub is the world's leading air travel platform: join our team of pilots to help people travel faster.</p>}
+        {!connectedAccountId && <p>bhub is the world&apos;s leading air travel platform: join our team of pilots to help people travel faster.</p>}
         {connectedAccountId && <h2>Add information to start accepting money</h2>}
-        {connectedAccountId && <p>Matt's Mats partners with Stripe to help you receive payments while keeping your personal and bank details secure.</p>}
+        {connectedAccountId && <p>Matt&apos;s Mats partners with Stripe to help you receive payments while keeping your personal and bank details secure.</p>}
         {!accountCreatePending && !connectedAccountId && (
           <button
             onClick={async () => {

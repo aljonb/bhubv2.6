@@ -21,11 +21,11 @@ export function PaymentCard({
   date,
   service,
   barberName,
-  amount,
+  amount: _amount,
   tip = 0,
   total,
   paymentMethod,
-  status,
+  status: _status,
   receiptUrl,
   barberImage = '/icons/profile.svg',
 }: PaymentCardProps) {

@@ -40,24 +40,24 @@ export async function GET(
     console.log(`Successfully fetched user: ${userDetails.firstName} ${userDetails.lastName} (${userDetails.email})`);
     
     return NextResponse.json(userDetails);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching user details:', {
       userId: params.userId,
-      error: error.message,
-      status: error.status,
-      code: error.code,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      status: (error as any)?.status,
+      code: (error as any)?.code,
       details: error
     });
     
     // Handle Clerk-specific errors
-    if (error.code === 'user_not_found' || error.status === 404) {
+    if ((error as any)?.code === 'user_not_found' || (error as any)?.status === 404) {
       return NextResponse.json({ 
         error: 'User not found in Clerk - user may have been deleted',
         userId: params.userId 
       }, { status: 404 });
     }
     
-    if (error.code === 'rate_limit_exceeded') {
+    if ((error as any)?.code === 'rate_limit_exceeded') {
       return NextResponse.json({ 
         error: 'Rate limit exceeded - too many requests',
         userId: params.userId 
@@ -67,7 +67,7 @@ export async function GET(
     // Generic error response
     return NextResponse.json({ 
       error: 'Failed to fetch user details',
-      details: error.message || 'Unknown error',
+      details: error instanceof Error ? error.message : 'Unknown error',
       userId: params.userId 
     }, { status: 500 });
   }

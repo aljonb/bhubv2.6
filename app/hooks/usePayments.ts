@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PaymentHistoryItem, PaymentStats } from '../lib/payment-types';
 
 interface UsePaymentsResult {
@@ -22,7 +22,7 @@ export function usePayments(options: UsePaymentsOptions = {}): UsePaymentsResult
 
   const { includeStats = true, limit = 100 } = options;
 
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -49,11 +49,11 @@ export function usePayments(options: UsePaymentsOptions = {}): UsePaymentsResult
     } finally {
       setLoading(false);
     }
-  };
+  }, [includeStats, limit]);
 
   useEffect(() => {
     fetchPayments();
-  }, [includeStats, limit]);
+  }, [fetchPayments]);
 
   return {
     payments,

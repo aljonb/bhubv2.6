@@ -2,7 +2,7 @@ export interface StripePayment {
   id: string;
   amount: number;
   currency: string;
-  status: 'succeeded' | 'pending' | 'failed' | 'canceled';
+  status: 'succeeded' | 'pending' | 'failed' | 'canceled' | 'processing' | 'requires_action' | 'requires_capture' | 'requires_confirmation' | 'requires_payment_method';
   created: number;
   description?: string;
   metadata: {

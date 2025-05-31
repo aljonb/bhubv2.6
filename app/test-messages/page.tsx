@@ -3,7 +3,6 @@
 import { useUser } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import { RealtimeChat } from '@/components/realtime-chat';
-import { createClient } from '@/lib/supabase/client';
 
 export default function TestMessagesPage() {
   const { user, isLoaded } = useUser();

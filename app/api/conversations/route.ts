@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 
 const BARBER_EMAIL = 'bushatia777@gmail.com';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const { userId } = await auth();
     

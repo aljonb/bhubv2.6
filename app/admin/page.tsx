@@ -13,7 +13,7 @@ interface RevenueStats {
 }
 
 export default function AdminDashboard() {
-  const { user, isLoaded } = useUser();
+  const { user: _user, isLoaded } = useUser();
   const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
   const [stats, setStats] = useState<RevenueStats | null>(null);
   const [loading, setLoading] = useState(true);

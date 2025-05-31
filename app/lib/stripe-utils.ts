@@ -1,3 +1,4 @@
+import Stripe from 'stripe';
 import { stripe } from './stripe';
 import { StripePayment, PaymentHistoryItem, PaymentStats } from './payment-types';
 
@@ -9,7 +10,7 @@ export async function getCustomerPayments(customerId: string, limit: number = 10
     const paymentIntents = await stripe.paymentIntents.list({
       customer: customerId,
       limit,
-      expand: ['data.payment_method'],
+      expand: ['data.payment_method', 'data.charges'],
     });
 
     return paymentIntents.data.map(transformStripePaymentIntent);
@@ -26,7 +27,7 @@ export async function getPaymentsByMetadata(userId: string, limit: number = 100)
   try {
     const paymentIntents = await stripe.paymentIntents.list({
       limit,
-      expand: ['data.payment_method'],
+      expand: ['data.payment_method', 'data.charges'],
     });
 
     // Filter by user_id in metadata since Stripe doesn't support metadata filtering in list
@@ -47,7 +48,7 @@ export async function getPaymentsByMetadata(userId: string, limit: number = 100)
 export async function getPaymentIntent(paymentIntentId: string): Promise<StripePayment> {
   try {
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
-      expand: ['payment_method'],
+      expand: ['data.payment_method', 'data.charges'],
     });
 
     return transformStripePaymentIntent(paymentIntent);
@@ -60,24 +61,26 @@ export async function getPaymentIntent(paymentIntentId: string): Promise<StripeP
 /**
  * Transform Stripe PaymentIntent to our StripePayment interface
  */
-function transformStripePaymentIntent(paymentIntent: any): StripePayment {
+function transformStripePaymentIntent(paymentIntent: Stripe.PaymentIntent): StripePayment {
+  const paymentMethod = paymentIntent.payment_method as Stripe.PaymentMethod;
+  
   return {
     id: paymentIntent.id,
     amount: paymentIntent.amount,
     currency: paymentIntent.currency,
-    status: paymentIntent.status,
+    status: paymentIntent.status as StripePayment['status'],
     created: paymentIntent.created,
-    description: paymentIntent.description,
+    description: paymentIntent.description || undefined,
     metadata: paymentIntent.metadata || {},
     payment_method: paymentIntent.payment_method ? {
-      type: paymentIntent.payment_method.type,
-      card: paymentIntent.payment_method.card ? {
-        brand: paymentIntent.payment_method.card.brand,
-        last4: paymentIntent.payment_method.card.last4,
+      type: paymentMethod.type,
+      card: paymentMethod.card ? {
+        brand: paymentMethod.card.brand,
+        last4: paymentMethod.card.last4,
       } : undefined,
     } : undefined,
-    receipt_url: paymentIntent.charges?.data?.[0]?.receipt_url,
-    customer: paymentIntent.customer,
+    receipt_url: (paymentIntent as any).charges?.data?.[0]?.receipt_url || undefined,
+    customer: typeof paymentIntent.customer === 'string' ? paymentIntent.customer : undefined,
   };
 }
 
@@ -88,6 +91,26 @@ export function transformToPaymentHistory(stripePayments: StripePayment[]): Paym
   return stripePayments.map((payment) => {
     const amount = payment.amount / 100; // Convert from cents
     const tip = 0; // We'll need to implement tip tracking separately if needed
+    
+    // Map Stripe status to PaymentHistoryItem status
+    const mapStatus = (status: StripePayment['status']): PaymentHistoryItem['status'] => {
+      switch (status) {
+        case 'succeeded':
+          return 'succeeded';
+        case 'canceled':
+          return 'canceled';
+        case 'failed':
+          return 'failed';
+        case 'processing':
+        case 'requires_action':
+        case 'requires_capture':
+        case 'requires_confirmation':
+        case 'requires_payment_method':
+        case 'pending':
+        default:
+          return 'pending';
+      }
+    };
     
     return {
       id: payment.id,
@@ -102,7 +125,7 @@ export function transformToPaymentHistory(stripePayments: StripePayment[]): Paym
       tip,
       total: amount + tip,
       paymentMethod: getPaymentMethodType(payment.payment_method?.type, payment.payment_method?.card?.brand),
-      status: payment.status,
+      status: mapStatus(payment.status),
       receiptUrl: payment.receipt_url,
       appointmentId: payment.metadata.appointment_id,
       stripePaymentIntentId: payment.id,
@@ -114,7 +137,7 @@ export function transformToPaymentHistory(stripePayments: StripePayment[]): Paym
 /**
  * Map Stripe payment method types to our payment method types
  */
-function getPaymentMethodType(type?: string, brand?: string): 'card' | 'cash' | 'apple_pay' | 'google_pay' | 'unknown' {
+function getPaymentMethodType(type?: string, _brand?: string): 'card' | 'cash' | 'apple_pay' | 'google_pay' | 'unknown' {
   if (!type) return 'unknown';
   
   switch (type) {
@@ -196,7 +219,7 @@ export async function getAllPayments(limit: number = 1000): Promise<StripePaymen
   try {
     const paymentIntents = await stripe.paymentIntents.list({
       limit,
-      expand: ['data.payment_method'],
+      expand: ['data.payment_method', 'data.charges'],
     });
 
     return paymentIntents.data.map(transformStripePaymentIntent);
