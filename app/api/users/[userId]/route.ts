@@ -16,7 +16,7 @@ function isClerkError(error: unknown): error is ClerkError {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const { userId: currentUserId } = await auth();
@@ -25,6 +25,9 @@ export async function GET(
       console.log('Unauthorized request to fetch user details');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Await the params to get the userId
+    const { userId } = await params;
 
     // Get current user to check if they're the barber
     const client = await clerkClient();
@@ -37,10 +40,10 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    console.log(`Barber ${currentUserEmail} fetching user details for userId: ${params.userId}`);
+    console.log(`Barber ${currentUserEmail} fetching user details for userId: ${userId}`);
     
     // Fetch the requested user
-    const user = await client.users.getUser(params.userId);
+    const user = await client.users.getUser(userId);
     
     const userDetails = {
       firstName: user.firstName || 'Unknown',
@@ -52,10 +55,12 @@ export async function GET(
     
     return NextResponse.json(userDetails);
   } catch (error: unknown) {
+    // Note: We need to await params here too for error handling
+    const { userId } = await params;
     const clerkError = isClerkError(error) ? error : null;
     
     console.error('Error fetching user details:', {
-      userId: params.userId,
+      userId: userId,
       error: error instanceof Error ? error.message : 'Unknown error',
       status: clerkError?.status,
       code: clerkError?.code,
@@ -66,14 +71,14 @@ export async function GET(
     if (clerkError?.code === 'user_not_found' || clerkError?.status === 404) {
       return NextResponse.json({ 
         error: 'User not found in Clerk - user may have been deleted',
-        userId: params.userId 
+        userId: userId 
       }, { status: 404 });
     }
     
     if (clerkError?.code === 'rate_limit_exceeded') {
       return NextResponse.json({ 
         error: 'Rate limit exceeded - too many requests',
-        userId: params.userId 
+        userId: userId 
       }, { status: 429 });
     }
     
@@ -81,7 +86,7 @@ export async function GET(
     return NextResponse.json({ 
       error: 'Failed to fetch user details',
       details: error instanceof Error ? error.message : 'Unknown error',
-      userId: params.userId 
+      userId: userId 
     }, { status: 500 });
   }
 }
