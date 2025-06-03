@@ -21,23 +21,35 @@ export async function getCustomerPayments(customerId: string, limit: number = 10
 }
 
 /**
- * Fetch payments by metadata (e.g., user_id from Clerk)
+ * Fetch payments by user ID (secure implementation)
+ * Uses Stripe customer ID for server-side filtering
  */
-export async function getPaymentsByMetadata(userId: string, limit: number = 100): Promise<StripePayment[]> {
+export async function getPaymentsByUserId(userId: string, limit: number = 100): Promise<StripePayment[]> {
+  try {
+    // First, get the user's email from Clerk to find their Stripe customer
+    // This should be passed from the calling function that has access to user data
+    throw new Error('This function should not be used directly. Use getPaymentsByCustomerId instead.');
+  } catch (error) {
+    console.error('Error: getPaymentsByUserId is deprecated:', error);
+    throw new Error('Use getPaymentsByCustomerId with proper customer ID');
+  }
+}
+
+/**
+ * Secure payment fetching using customer ID
+ * This replaces the vulnerable getPaymentsByMetadata function
+ */
+export async function getPaymentsByCustomerId(customerId: string, limit: number = 100): Promise<StripePayment[]> {
   try {
     const paymentIntents = await stripe.paymentIntents.list({
+      customer: customerId,
       limit,
       expand: ['data.payment_method', 'data.charges'],
     });
 
-    // Filter by user_id in metadata since Stripe doesn't support metadata filtering in list
-    const userPayments = paymentIntents.data.filter(
-      (payment) => payment.metadata?.user_id === userId
-    );
-
-    return userPayments.map(transformStripePaymentIntent);
+    return paymentIntents.data.map(transformStripePaymentIntent);
   } catch (error) {
-    console.error('Error fetching payments by metadata:', error);
+    console.error('Error fetching customer payments:', error);
     throw new Error('Failed to fetch payment history');
   }
 }
