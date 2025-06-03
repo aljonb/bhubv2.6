@@ -39,6 +39,7 @@ interface FormattedAppointment {
   time: string;
   status: 'confirmed' | 'pending' | 'cancelled';
   barberImage: string;
+  originalDate: string;
 }
 
 export default function Dashboard() {
@@ -84,8 +85,9 @@ export default function Dashboard() {
 
         // Format appointments for display
         const formattedAppointments: FormattedAppointment[] = (data || []).map((appointment: DatabaseAppointment) => {
-          // Format date from YYYY-MM-DD to MM/DD/YYYY
-          const dateObj = new Date(appointment.date);
+          // FIX: Parse date properly to avoid timezone issues
+          const [year, month, day] = appointment.date.split('-').map(Number);
+          const dateObj = new Date(year, month - 1, day); // month is 0-indexed
           const formattedDate = dateObj.toLocaleDateString('en-US');
           
           // Format time from HH:MM:SS to HH:MM AM/PM
@@ -107,15 +109,19 @@ export default function Dashboard() {
           return {
             id: appointment.id,
             service: appointment.service_type === 'Barber' ? 'Haircut & Beard Trim' : 'Hair Styling',
-            barberName: 'Professional Barber', // You can make this dynamic later
+            barberName: 'Professional Barber',
             date: formattedDate,
             time: formattedTime,
             status,
-            barberImage: 'https://randomuser.me/api/portraits/men/32.jpg' // Default image
+            barberImage: 'https://randomuser.me/api/portraits/men/32.jpg',
+            originalDate: appointment.date
           };
         });
 
-        setAppointments(formattedAppointments);
+        // CLEAR PREVIOUS APPOINTMENTS BEFORE SETTING NEW ONES
+        setAppointments([]); // Clear first
+        setTimeout(() => setAppointments(formattedAppointments), 0); // Set new ones
+        
       } catch (err) {
         console.error('Exception in fetchUserAppointments:', err);
         setAppointmentsError(`Failed to fetch appointments: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -125,13 +131,13 @@ export default function Dashboard() {
     };
 
     fetchUserAppointments();
-  }, [isLoaded, user]);
+  }, [isLoaded, user?.id]); // CHANGE: Use user.id instead of user object
 
   // Filter appointments based on upcoming/past
   const filteredAppointments = appointments.filter(appointment => {
-    const appointmentDate = new Date(appointment.date);
+    const appointmentDate = new Date(appointment.originalDate);
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day
+    today.setHours(0, 0, 0, 0);
     
     if (showUpcoming) {
       return appointmentDate >= today;
@@ -223,18 +229,35 @@ export default function Dashboard() {
               </p>
             </div>
           ) : (
-            filteredAppointments.map((appointment) => (
-              <AppointmentCard
-                key={appointment.id}
-                service={appointment.service}
-                barberName={appointment.barberName}
-                date={appointment.date}
-                time={appointment.time}
-                status={appointment.status}
-                barberImage={appointment.barberImage}
-              />
-            ))
+            (() => {
+              console.log('About to render appointments:', filteredAppointments.length);
+              filteredAppointments.forEach((apt, index) => {
+                console.log(`Appointment ${index}:`, {
+                  id: apt.id,
+                  date: apt.date,
+                  time: apt.time,
+                  originalDate: apt.originalDate
+                });
+              });
+              return null;
+            })()
           )}
+        </div>
+      </div>
+
+      <div className="mt-12">
+        <div className="space-y-4">
+          {filteredAppointments.map((appointment) => (
+            <AppointmentCard
+              key={appointment.id}
+              service={appointment.service}
+              barberName={appointment.barberName}
+              date={appointment.date}
+              time={appointment.time}
+              status={appointment.status}
+              barberImage={appointment.barberImage}
+            />
+          ))}
         </div>
       </div>
     </div>

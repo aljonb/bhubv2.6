@@ -17,6 +17,9 @@ export function AppointmentCard({
   status,
   barberImage = '/icons/profile.svg' 
 }: AppointmentCardProps) {
+  // Add debugging to see what's being rendered
+  console.log('AppointmentCard rendering:', { date, time, service });
+  
   const statusBadge = {
     confirmed: <span className="badge badge-success">Confirmed</span>,
     pending: <span className="badge badge-pending">Pending</span>,

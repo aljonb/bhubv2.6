@@ -189,73 +189,76 @@ const Calendar = ({}: CalendarProps) => {
     }
     
     if (selectedDate) {
-      // Check if slot is available
       const dateString = selectedDate.toISODate() as string;
-      const timeSlotAvailable = !appointments.some(
-        appointment => appointment.date === dateString && appointment.time === selectedTime
-      );
       
-      if (timeSlotAvailable) {
-        try {
-          // Add to Supabase with pending status
-          const { data, error } = await supabase
-            .from('appointments')
-            .insert([
-              {
-                user_id: user.id,
-                service_type: selectedService,
-                date: dateString,
-                time: selectedTime,
-                payment_status: 'pending'
-              }
-            ])
-            .select('id');
-            
-          if (error) {
-            console.error('Supabase error details:', error);
-            alert(`Failed to save appointment: ${error.message || 'Unknown error'}`);
+      try {
+        // Remove client-side check - let database handle it
+        // const timeSlotAvailable = !appointments.some(...)
+        
+        // Try to insert directly - database will prevent conflicts
+        const { data, error } = await supabase
+          .from('appointments')
+          .insert([
+            {
+              user_id: user.id,
+              service_type: selectedService,
+              date: dateString,
+              time: selectedTime,
+              timezone: timezone,
+              payment_status: 'pending'
+            }
+          ])
+          .select('id');
+          
+        if (error) {
+          // Check if it's a unique constraint violation
+          if (error.code === '23505' || error.message.includes('unique_appointment_slot')) {
+            alert('This time slot has just been booked by someone else. Please select another time.');
+            // Refresh the appointments list
+            window.location.reload();
             return;
           }
           
-          if (!data || data.length === 0) {
-            console.error('No data returned from insert operation');
-            alert('Failed to save appointment: No data returned');
-            return;
-          }
-          
-          const appointmentId = data[0].id;
-          
-          // Use your connected account ID here
-          const connectedAccountId = 'acct_1RRK36RrE9xuSNyI';
-          
-          // Call our API with appointment ID and connected account
-          const response = await fetch('/api/checkout_sessions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              appointmentId,
-              connectedAccountId,
-              serviceType: selectedService,
-              barberName: 'Professional Barber' // You can make this dynamic later
-            }),
-          });
-          
-          const { url, error: checkoutError } = await response.json();
-          
-          if (url) {
-            window.location.href = url;
-          } else {
-            console.error('Error creating checkout session:', checkoutError);
-            alert(`Failed to create checkout session: ${checkoutError || 'Unknown error'}`);
-          }
-        } catch (err) {
-          console.error('Error creating appointment:', err);
-          alert(`Failed to create appointment: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          console.error('Supabase error details:', error);
+          alert(`Failed to save appointment: ${error.message || 'Unknown error'}`);
+          return;
         }
-      } else {
-        alert('This time slot is already booked. Please select another time.');
+        
+        if (!data || data.length === 0) {
+          console.error('No data returned from insert operation');
+          alert('Failed to save appointment: No data returned');
+          return;
+        }
+        
+        const appointmentId = data[0].id;
+        
+        // Continue with payment flow...
+        const response = await fetch('/api/checkout_sessions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            appointmentId,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create checkout session');
+        }
+        
+        const { url, barber } = await response.json();
+        
+        if (url) {
+          console.log(`Payment will be processed by: ${barber?.name}`);
+          window.location.href = url;
+        } else {
+          throw new Error('No checkout URL received');
+        }
+      } catch (err) {
+        console.error('Error creating appointment:', err);
+        alert(`Failed to create appointment: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     }
   };
