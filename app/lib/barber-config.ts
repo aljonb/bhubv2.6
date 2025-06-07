@@ -8,13 +8,18 @@ export interface BarberConfig {
     isActive: boolean;
   }
   
-  // This should be moved to environment variables or database in production
-  export const BARBER_CONFIGS: BarberConfig[] = [
+// Environment variable validation
+if (!process.env.BARBER_STRIPE_ACCOUNT_ID) {
+  throw new Error('BARBER_STRIPE_ACCOUNT_ID environment variable is required');
+}
+  
+// This should be moved to environment variables or database in production
+export const BARBER_CONFIGS: BarberConfig[] = [
     {
       id: 'barber_001',
       name: 'Professional Barber',
       email: 'bushatia777@gmail.com',
-      stripeAccountId: 'acct_1RRK36RrE9xuSNyI', // Your current account
+      stripeAccountId: process.env.BARBER_STRIPE_ACCOUNT_ID, // Using environment variable
       services: ['Barber', 'Salon'],
       isActive: true
     }
