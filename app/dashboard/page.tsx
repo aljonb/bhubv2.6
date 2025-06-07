@@ -12,11 +12,8 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Define admin email addresses (same as in your API route)
-const ADMIN_EMAILS = [
-  'bushatia777@gmail.com', // Replace with actual barber email
-  // Add more admin emails as needed
-];
+// Get admin email from environment variable
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_BARBER_EMAIL;
 
 // Interface for appointment data from database
 interface DatabaseAppointment {
@@ -53,7 +50,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (isLoaded && user) {
       const userEmail = user.emailAddresses[0]?.emailAddress;
-      setIsAdmin(userEmail ? ADMIN_EMAILS.includes(userEmail) : false);
+      setIsAdmin(userEmail ? userEmail === ADMIN_EMAIL : false);
     }
   }, [isLoaded, user]);
 

@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getAllPayments, transformToPaymentHistory, calculateTotalRevenue } from '../../lib/stripe-utils';
 
-// Define admin email addresses
-const ADMIN_EMAILS = [
-  'bushatia777@gmail.com', // Replace with actual barber email
-  // Add more admin emails as needed
-];
+// Get admin email from environment variable
+const ADMIN_EMAIL = process.env.BARBER_EMAIL;
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +23,7 @@ export async function GET(request: NextRequest) {
     const userEmail = user.emailAddresses[0]?.emailAddress;
 
     // Check if user is admin
-    if (!userEmail || !ADMIN_EMAILS.includes(userEmail)) {
+    if (!userEmail || !ADMIN_EMAIL || userEmail !== ADMIN_EMAIL) {
       return NextResponse.json(
         { error: 'Access denied. Admin privileges required.' },
         { status: 403 }
