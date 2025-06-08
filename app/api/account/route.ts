@@ -1,54 +1,101 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { stripe } from '../../lib/stripe';
+import { handleApiError } from '../../lib/error-handler';
+import { validateAdminAccess } from '../../lib/auth-utils';
 
-// Define admin email addresses (same as your other routes)
-const ADMIN_EMAILS = [
-  'bushatia777@gmail.com', // Replace with actual barber email
-  // Add more admin emails as needed
-];
+// Use environment variable for admin emails (more secure and manageable)
+const ADMIN_EMAILS = process.env.ADMIN_EMAILS?.split(',').map(email => email.trim()) || [];
+
+// Rate limiting map (in production, use Redis or database)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+const MAX_REQUESTS_PER_HOUR = 3; // Maximum 3 account creation attempts per hour
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const userLimit = rateLimitMap.get(userId);
+  
+  if (!userLimit || now > userLimit.resetTime) {
+    rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+  
+  if (userLimit.count >= MAX_REQUESTS_PER_HOUR) {
+    return false;
+  }
+  
+  userLimit.count++;
+  return true;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the authenticated user from Clerk
-    const { userId } = await auth();
+    // Simplified admin validation
+    const adminCheck = await validateAdminAccess();
     
-    if (!userId) {
+    if (!adminCheck.isValid) {
+      if (adminCheck.error === 'Unauthorized') {
+        return NextResponse.json({ error: adminCheck.error }, { status: 401 });
+      }
+      return NextResponse.json({ error: adminCheck.error }, { status: 403 });
+    }
+
+    const { userId, userEmail } = adminCheck;
+
+    // Rate limiting check
+    if (!checkRateLimit(userId!)) {
+      console.warn(`Rate limit exceeded for user ${userId} attempting to create Stripe Connect account`);
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
       );
     }
 
-    // Get user details from Clerk
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-
-    // Check if user is admin (only admins can create Stripe Connect accounts)
-    if (!userEmail || !ADMIN_EMAILS.includes(userEmail)) {
-      return NextResponse.json(
-        { error: 'Access denied. Admin privileges required for account creation.' },
-        { status: 403 }
-      );
-    }
-
-    // Get request body for account details (optional)
+    // Get request body for account details (with validation)
     const body = await request.json().catch(() => ({}));
     const { country = 'US', type = 'express' } = body;
 
-    // Create Stripe Connect account with metadata
+    // Validate input parameters
+    const validCountries = ['US', 'CA', 'GB', 'AU']; // Add more as needed
+    const validTypes = ['express', 'standard'];
+
+    if (!validCountries.includes(country)) {
+      return NextResponse.json(
+        { error: 'Invalid country code' },
+        { status: 400 }
+      );
+    }
+
+    if (!validTypes.includes(type)) {
+      return NextResponse.json(
+        { error: 'Invalid account type' },
+        { status: 400 }
+      );
+    }
+
+    // Create Stripe Connect account with enhanced metadata
     const account = await stripe.accounts.create({
-      type,
+      type: type as 'express' | 'standard',
       country,
       metadata: {
-        created_by_user_id: userId,
-        created_by_email: userEmail,
+        created_by_user_id: userId!,
+        created_by_email: userEmail!,
         created_at: new Date().toISOString(),
+        ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+        user_agent: request.headers.get('user-agent') || 'unknown',
       },
     });
 
-    console.log(`Stripe Connect account created by admin ${userEmail}: ${account.id}`);
+    // Enhanced logging for audit trail
+    console.log(`Stripe Connect account created successfully:`, {
+      accountId: account.id,
+      type: account.type,
+      country: account.country,
+      createdBy: userEmail,
+      userId: userId,
+      timestamp: new Date().toISOString()
+    });
 
     return NextResponse.json({ 
       account: account.id,
@@ -57,14 +104,14 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error creating Stripe Connect account:', error);
-    
-    return NextResponse.json(
-      { 
-        error: 'Failed to create Stripe Connect account',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    const context = {
+      userId: (await auth()).userId || 'unknown',
+      endpoint: '/api/account',
+      method: request.method,
+      userAgent: request.headers.get('user-agent') || undefined
+    };
+
+    const { response, status } = handleApiError(error, context, 'Failed to create Stripe Connect account');
+    return NextResponse.json(response, { status });
   }
 }

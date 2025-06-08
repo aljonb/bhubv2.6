@@ -56,11 +56,11 @@ export async function POST(req) {
       );
     }
 
-    // SECURITY: Determine barber configuration server-side
+    // SECURITY: Determine barber configuration server-side (NOW ASYNC)
     let barberConfig;
     if (barberId) {
       // Validate provided barber ID
-      barberConfig = getBarberById(barberId);
+      barberConfig = await getBarberById(barberId);
       if (!barberConfig) {
         return NextResponse.json(
           { error: 'Invalid barber ID' },
@@ -69,7 +69,8 @@ export async function POST(req) {
       }
       
       // Validate barber can provide this service
-      if (!validateBarberForService(barberId, appointment.service_type)) {
+      const canProvideService = await validateBarberForService(barberId, appointment.service_type);
+      if (!canProvideService) {
         return NextResponse.json(
           { error: 'Barber cannot provide this service type' },
           { status: 400 }
@@ -78,7 +79,7 @@ export async function POST(req) {
     } else {
       // Use default barber if none specified
       try {
-        barberConfig = getDefaultBarber();
+        barberConfig = await getDefaultBarber();
       } catch (error) {
         return NextResponse.json(
           { error: 'No barbers available' },

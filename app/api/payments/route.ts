@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getPaymentsByCustomerId, getOrCreateStripeCustomer, transformToPaymentHistory, calculatePaymentStats } from '../../lib/stripe-utils';
+import { handleApiError } from '../../../lib/error-handler';
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,14 +54,14 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching payment history:', error);
-    
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch payment history',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    const context = {
+      userId: (await auth()).userId || 'unknown',
+      endpoint: '/api/payments',
+      method: request.method,
+      userAgent: request.headers.get('user-agent') || undefined
+    };
+
+    const { response, status } = handleApiError(error, context, 'Failed to fetch payment history');
+    return NextResponse.json(response, { status });
   }
 } 

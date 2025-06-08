@@ -60,9 +60,6 @@ export default function Dashboard() {
     if (isLoaded && user) {
       const userEmail = user.emailAddresses[0]?.emailAddress;
       const isUserAdmin = userEmail === BARBER_EMAIL;
-      console.log('User email:', userEmail);
-      console.log('Barber email:', BARBER_EMAIL);
-      console.log('Is admin:', isUserAdmin);
       setIsAdmin(isUserAdmin);
     }
   }, [isLoaded, user]);
@@ -77,7 +74,6 @@ export default function Dashboard() {
     try {
       const response = await fetch(`/api/users/${userId}`);
       if (!response.ok) {
-        console.error(`Failed to fetch user details for ${userId}:`, response.status, response.statusText);
         // Return a fallback user details
         const fallbackUser = {
           firstName: 'Unknown',
@@ -92,7 +88,6 @@ export default function Dashboard() {
       userCache.set(userId, userDetails);
       return userDetails;
     } catch (error) {
-      console.error(`Error fetching user details for ${userId}:`, error);
       // Return a fallback user details
       const fallbackUser = {
         firstName: 'Unknown',
@@ -120,11 +115,6 @@ export default function Dashboard() {
         const userEmail = user.emailAddresses[0]?.emailAddress;
         const isUserAdmin = userEmail === BARBER_EMAIL;
         
-        console.log('Fetching appointments...');
-        console.log('User email:', userEmail);
-        console.log('Barber email:', BARBER_EMAIL);
-        console.log('Is admin:', isUserAdmin);
-
         // Build query - ALL appointments for admin, user-specific for regular users
         let query = supabase
           .from('appointments')
@@ -132,10 +122,7 @@ export default function Dashboard() {
         
         // If not admin, filter by user_id
         if (!isUserAdmin) {
-          console.log('Filtering by user_id:', user.id);
           query = query.eq('user_id', user.id);
-        } else {
-          console.log('Admin user - fetching ALL appointments');
         }
         
         const { data, error } = await query
@@ -143,13 +130,10 @@ export default function Dashboard() {
           .order('time', { ascending: true });
 
         if (error) {
-          console.error('Error fetching appointments:', error);
+          console.error('Error fetching appointments');
           setAppointmentsError(`Error fetching appointments: ${error.message}`);
           return;
         }
-
-        console.log('Raw appointments from database:', data?.length || 0);
-        console.log('Raw appointments data:', data);
 
         // First, format appointments without user names
         const formattedAppointments: FormattedAppointment[] = (data || []).map((appointment: DatabaseAppointment) => {
@@ -187,19 +171,15 @@ export default function Dashboard() {
             userName: undefined // Will be populated later for admin
           };
         });
-
-        console.log('Formatted appointments:', formattedAppointments.length);
         
         // Set appointments immediately so they show up quickly
         setAppointments(formattedAppointments);
 
         // If admin, fetch user names in the background
         if (isUserAdmin && formattedAppointments.length > 0) {
-          console.log('Fetching user names for admin view...');
           
           // Get unique user IDs
           const uniqueUserIds = [...new Set(formattedAppointments.map(apt => apt.userId).filter(Boolean))];
-          console.log('Unique user IDs to fetch:', uniqueUserIds);
 
           // Fetch user details for all unique user IDs in parallel
           const userDetailsPromises = uniqueUserIds.map(userId => 
@@ -228,16 +208,14 @@ export default function Dashboard() {
               return appointment;
             });
 
-            console.log('Updated appointments with user names');
             setAppointments(appointmentsWithNames);
           } catch (userFetchError) {
-            console.error('Error fetching user details:', userFetchError);
             // Keep the appointments without user names
           }
         }
         
       } catch (err) {
-        console.error('Exception in fetchAppointments:', err);
+        console.error('Failed to fetch appointments');
         setAppointmentsError(`Failed to fetch appointments: ${err instanceof Error ? err.message : 'Unknown error'}`);
       } finally {
         setIsLoadingAppointments(false);
@@ -259,11 +237,6 @@ export default function Dashboard() {
       return appointmentDate < today;
     }
   });
-
-  console.log('Total appointments:', appointments.length);
-  console.log('Filtered appointments:', filteredAppointments.length);
-  console.log('Show upcoming:', showUpcoming);
-  console.log('Is admin state:', isAdmin);
 
   // Show loading state while checking authentication
   if (!isLoaded) {
@@ -376,4 +349,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-} 
+}

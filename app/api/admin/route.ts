@@ -1,38 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getAllPayments, transformToPaymentHistory, calculateTotalRevenue } from '../../lib/stripe-utils';
-
-// Get admin email from environment variable
-const ADMIN_EMAIL = process.env.BARBER_EMAIL;
+import { validateAdminAccess } from '../../lib/auth-utils';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the authenticated user from Clerk
-    const { userId } = await auth();
+    // Use centralized admin validation instead of direct email comparison
+    const adminCheck = await validateAdminAccess();
     
-    if (!userId) {
+    if (!adminCheck.isValid) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Get user details from Clerk
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    const userEmail = user.emailAddresses[0]?.emailAddress;
-
-    // Check if user is admin
-    if (!userEmail || !ADMIN_EMAIL || userEmail !== ADMIN_EMAIL) {
-      return NextResponse.json(
-        { error: 'Access denied. Admin privileges required.' },
-        { status: 403 }
+        { error: adminCheck.error || 'Access denied' },
+        { status: adminCheck.error === 'Unauthorized' ? 401 : 403 }
       );
     }
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '1000');
+
+    // Validate limit parameter
+    if (limit > 10000 || limit < 1) {
+      return NextResponse.json(
+        { error: 'Invalid limit parameter' },
+        { status: 400 }
+      );
+    }
 
     // Fetch all payments from Stripe
     const stripePayments = await getAllPayments(limit);
@@ -50,13 +43,9 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching admin payment data:', error);
-    
+    // Use secure error handling
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch payment data',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to fetch payment data' },
       { status: 500 }
     );
   }

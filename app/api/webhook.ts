@@ -3,10 +3,15 @@ import { stripe } from '../lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Initialize Supabase client with SERVICE ROLE for server-side operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing required Supabase environment variables');
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // This is your Stripe webhook secret for testing endpoint locally
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
