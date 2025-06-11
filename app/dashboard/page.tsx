@@ -336,9 +336,9 @@ export default function Dashboard() {
                   status={appointment.status}
                   barberImage={appointment.barberImage}
                 />
-                {/* Show user name for admin */}
+                {/* Show user name for admin - positioned below the thumbnail */}
                 {isAdmin && appointment.userName && (
-                  <div className="absolute top-2 right-2 bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">
+                  <div className="absolute top-16 left-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-medium">
                     {appointment.userName}
                   </div>
                 )}
