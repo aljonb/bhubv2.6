@@ -161,7 +161,7 @@ export default function Dashboard() {
           return {
             id: appointment.id,
             service: appointment.service_type === 'Barber' ? 'Haircut & Beard Trim' : 'Hair Styling',
-            barberName: 'Professional Barber',
+            barberName: isUserAdmin ? 'Loading...' : 'Professional Barber', // Show loading for admin initially
             date: formattedDate,
             time: formattedTime,
             status,
@@ -203,7 +203,11 @@ export default function Dashboard() {
               if (appointment.userId && userDetailsMap.has(appointment.userId)) {
                 const userDetails = userDetailsMap.get(appointment.userId)!;
                 const userName = `${userDetails.firstName} ${userDetails.lastName}`.trim() || userDetails.email;
-                return { ...appointment, userName };
+                return { 
+                  ...appointment, 
+                  userName,
+                  barberName: userName // Use customer name as barberName for admin
+                };
               }
               return appointment;
             });
@@ -327,7 +331,7 @@ export default function Dashboard() {
             </div>
           ) : (
             filteredAppointments.map((appointment) => (
-              <div key={appointment.id} className="relative">
+              <div key={appointment.id}>
                 <AppointmentCard
                   service={appointment.service}
                   barberName={appointment.barberName}
@@ -336,12 +340,6 @@ export default function Dashboard() {
                   status={appointment.status}
                   barberImage={appointment.barberImage}
                 />
-                {/* Show user name for admin - positioned below the thumbnail */}
-                {isAdmin && appointment.userName && (
-                  <div className="absolute top-16 left-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-medium">
-                    {appointment.userName}
-                  </div>
-                )}
               </div>
             ))
           )}
