@@ -48,7 +48,8 @@ export async function GET(
     const userDetails = {
       firstName: user.firstName || 'Unknown',
       lastName: user.lastName || '',
-      email: user.emailAddresses[0]?.emailAddress || ''
+      email: user.emailAddresses[0]?.emailAddress || '',
+      imageUrl: user.imageUrl || null
     };
     
     console.log(`Successfully fetched user: ${userDetails.firstName} ${userDetails.lastName} (${userDetails.email})`);

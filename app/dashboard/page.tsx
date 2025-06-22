@@ -45,6 +45,7 @@ interface UserDetails {
   firstName: string;
   lastName: string;
   email: string;
+  imageUrl?: string;
 }
 
 export default function Dashboard() {
@@ -135,7 +136,7 @@ export default function Dashboard() {
           return;
         }
 
-        // First, format appointments without user names
+        // First, format appointments with default fallback
         const formattedAppointments: FormattedAppointment[] = (data || []).map((appointment: DatabaseAppointment) => {
           // Parse date properly to avoid timezone issues
           const [year, month, day] = appointment.date.split('-').map(Number);
@@ -161,61 +162,66 @@ export default function Dashboard() {
           return {
             id: appointment.id,
             service: appointment.service_type === 'Barber' ? 'Haircut & Beard Trim' : 'Hair Styling',
-            barberName: isUserAdmin ? 'Loading...' : 'Professional Barber', // Show loading for admin initially
+            barberName: isUserAdmin ? 'Loading...' : 'Professional Barber',
             date: formattedDate,
             time: formattedTime,
             status,
-            barberImage: 'https://randomuser.me/api/portraits/men/32.jpg',
+            barberImage: '/icons/profile.svg', // Default fallback
             originalDate: appointment.date,
             userId: appointment.user_id,
-            userName: undefined // Will be populated later for admin
+            userName: undefined
           };
         });
         
         // Set appointments immediately so they show up quickly
         setAppointments(formattedAppointments);
 
-        // If admin, fetch user names in the background
-        if (isUserAdmin && formattedAppointments.length > 0) {
-          
+        // Always fetch user details for all appointments (both admin and regular users)
+        if (formattedAppointments.length > 0) {
           // Get unique user IDs
           const uniqueUserIds = [...new Set(formattedAppointments.map(apt => apt.userId).filter(Boolean))];
 
-          // Fetch user details for all unique user IDs in parallel
-          const userDetailsPromises = uniqueUserIds.map(userId => 
-            fetchUserDetails(userId as string)
-          );
-
-          try {
-            const userDetailsResults = await Promise.all(userDetailsPromises);
-            
-            // Create a map of userId to user details
-            const userDetailsMap = new Map<string, UserDetails>();
-            uniqueUserIds.forEach((userId, index) => {
-              const userDetails = userDetailsResults[index];
-              if (userDetails && userId) {
-                userDetailsMap.set(userId, userDetails);
-              }
-            });
-
-            // Update appointments with user names
-            const appointmentsWithNames = formattedAppointments.map(appointment => {
-              if (appointment.userId && userDetailsMap.has(appointment.userId)) {
-                const userDetails = userDetailsMap.get(appointment.userId)!;
-                const userName = `${userDetails.firstName} ${userDetails.lastName}`.trim() || userDetails.email;
-                return { 
-                  ...appointment, 
-                  userName,
-                  barberName: userName // Use customer name as barberName for admin
+          // For regular users, we need to handle their own appointments differently
+          // since the API only allows barber to fetch other users' details
+          const appointmentsWithDetails = await Promise.all(
+            formattedAppointments.map(async (appointment) => {
+              // If this is the current user's own appointment, use their Clerk data directly
+              if (appointment.userId === user?.id) {
+                const displayName = isUserAdmin ? 
+                  `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.emailAddresses[0]?.emailAddress || 'Unknown User' :
+                  'Professional Barber';
+                
+                return {
+                  ...appointment,
+                  barberName: displayName,
+                  barberImage: user?.imageUrl || '/icons/profile.svg',
+                  userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.emailAddresses[0]?.emailAddress || 'Unknown User'
                 };
               }
+              
+              // For other users' appointments (admin only), fetch via API
+              if (isUserAdmin && appointment.userId && appointment.userId !== user?.id) {
+                try {
+                  const userDetails = await fetchUserDetails(appointment.userId);
+                  if (userDetails) {
+                    const userName = `${userDetails.firstName} ${userDetails.lastName}`.trim() || userDetails.email;
+                    return {
+                      ...appointment,
+                      barberName: userName,
+                      barberImage: userDetails.imageUrl || '/icons/profile.svg',
+                      userName
+                    };
+                  }
+                } catch (error) {
+                  // Keep default values if fetch fails
+                }
+              }
+              
               return appointment;
-            });
+            })
+          );
 
-            setAppointments(appointmentsWithNames);
-          } catch (userFetchError) {
-            // Keep the appointments without user names
-          }
+          setAppointments(appointmentsWithDetails);
         }
         
       } catch (err) {
