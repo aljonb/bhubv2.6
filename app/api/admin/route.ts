@@ -41,8 +41,9 @@ export async function GET(request: NextRequest) {
       total: paymentHistory.length,
     });
 
-  } catch (_error) {
-    // Use secure error handling - prefixed with underscore to indicate intentionally unused
+  } catch (error) {
+    // Log the error for debugging while keeping the response secure
+    console.error('Admin payment fetch error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch payment data' },
       { status: 500 }
