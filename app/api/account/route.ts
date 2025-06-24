@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { auth } from '@clerk/nextjs/server';
 import { stripe } from '../../lib/stripe';
 import { handleApiError } from '../../lib/error-handler';
 import { validateAdminAccess } from '../../lib/auth-utils';
-
-// Use environment variable for admin emails (more secure and manageable)
-const ADMIN_EMAILS = process.env.ADMIN_EMAILS?.split(',').map(email => email.trim()) || [];
 
 // Rate limiting map (in production, use Redis or database)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();

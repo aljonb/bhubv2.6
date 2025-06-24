@@ -1,7 +1,7 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { DashboardCard } from "../components/DashboardCard";
 import { AppointmentCard } from "../components/AppointmentCard";
@@ -55,7 +55,7 @@ export default function Dashboard() {
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(true);
   const [appointmentsError, setAppointmentsError] = useState<string | null>(null);
   const [showUpcoming, setShowUpcoming] = useState(true);
-  const [userCache, setUserCache] = useState<Map<string, UserDetails>>(new Map());
+  const [userCache] = useState<Map<string, UserDetails>>(new Map());
 
   useEffect(() => {
     if (isLoaded && user) {
@@ -66,7 +66,7 @@ export default function Dashboard() {
   }, [isLoaded, user]);
 
   // Function to fetch user details from Clerk with caching
-  const fetchUserDetails = async (userId: string): Promise<UserDetails | null> => {
+  const fetchUserDetails = useCallback(async (userId: string): Promise<UserDetails | null> => {
     // Check cache first
     if (userCache.has(userId)) {
       return userCache.get(userId) || null;
@@ -88,7 +88,7 @@ export default function Dashboard() {
       // Cache the result
       userCache.set(userId, userDetails);
       return userDetails;
-    } catch (error) {
+    } catch (_error) {
       // Return a fallback user details
       const fallbackUser = {
         firstName: 'Unknown',
@@ -98,7 +98,7 @@ export default function Dashboard() {
       userCache.set(userId, fallbackUser);
       return fallbackUser;
     }
-  };
+  }, [userCache]);
 
   // Fetch appointments
   useEffect(() => {
@@ -178,9 +178,6 @@ export default function Dashboard() {
 
         // Always fetch user details for all appointments (both admin and regular users)
         if (formattedAppointments.length > 0) {
-          // Get unique user IDs
-          const uniqueUserIds = [...new Set(formattedAppointments.map(apt => apt.userId).filter(Boolean))];
-
           // For regular users, we need to handle their own appointments differently
           // since the API only allows barber to fetch other users' details
           const appointmentsWithDetails = await Promise.all(
@@ -212,7 +209,7 @@ export default function Dashboard() {
                       userName
                     };
                   }
-                } catch (error) {
+                } catch (_error) {
                   // Keep default values if fetch fails
                 }
               }
@@ -233,7 +230,7 @@ export default function Dashboard() {
     };
 
     fetchAppointments();
-  }, [isLoaded, user?.id]);
+  }, [isLoaded, user, fetchUserDetails]);
 
   // Filter appointments based on upcoming/past
   const filteredAppointments = appointments.filter(appointment => {

@@ -37,7 +37,7 @@ export async function POST(req) {
           { status: 404 }
         );
       }
-    } catch (stripeError) {
+    } catch (_stripeError) {
       return NextResponse.json(
         { error: 'Invalid account or access denied' },
         { status: 404 }

@@ -33,6 +33,7 @@ export async function validateAdminAccess(): Promise<{
 
     return { isValid: true, userId, userEmail };
   } catch (error) {
+    console.error('Authentication error:', error);
     return { isValid: false, error: 'Authentication failed' };
   }
 }

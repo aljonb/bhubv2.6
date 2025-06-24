@@ -88,7 +88,7 @@ interface ErrorContext {
   /**
    * Wrapper for API route error handling
    */
-  export function withErrorHandler<T extends any[]>(
+  export function withErrorHandler<T extends readonly unknown[]>(
     handler: (...args: T) => Promise<Response>,
     endpoint: string
   ) {

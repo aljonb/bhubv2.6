@@ -24,7 +24,7 @@ export async function getCustomerPayments(customerId: string, limit: number = 10
  * Fetch payments by user ID (secure implementation)
  * Uses Stripe customer ID for server-side filtering
  */
-export async function getPaymentsByUserId(userId: string, limit: number = 100): Promise<StripePayment[]> {
+export async function getPaymentsByUserId(userId: string, _limit: number = 100): Promise<StripePayment[]> {
   try {
     // First, get the user's email from Clerk to find their Stripe customer
     // This should be passed from the calling function that has access to user data

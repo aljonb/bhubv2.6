@@ -80,7 +80,7 @@ export async function POST(req) {
       // Use default barber if none specified
       try {
         barberConfig = await getDefaultBarber();
-      } catch (error) {
+      } catch {
         return NextResponse.json(
           { error: 'No barbers available' },
           { status: 500 }
