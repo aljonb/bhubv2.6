@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, clerkClient } from '@clerk/nextjs/server';
 import { getAllPayments, transformToPaymentHistory, calculateTotalRevenue } from '../../lib/stripe-utils';
 import { validateAdminAccess } from '../../lib/auth-utils';
 
@@ -42,8 +41,8 @@ export async function GET(request: NextRequest) {
       total: paymentHistory.length,
     });
 
-  } catch (error) {
-    // Use secure error handling
+  } catch (_error) {
+    // Use secure error handling - prefixed with underscore to indicate intentionally unused
     return NextResponse.json(
       { error: 'Failed to fetch payment data' },
       { status: 500 }

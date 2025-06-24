@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { auth } from '@clerk/nextjs/server'
 import { stripe } from '../../lib/stripe'
 import { validateAdminAccess } from '../../lib/auth-utils'
 
@@ -37,7 +36,7 @@ export async function POST(req) {
           { status: 404 }
         );
       }
-    } catch (_stripeError) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid account or access denied' },
         { status: 404 }

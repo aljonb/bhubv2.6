@@ -88,7 +88,7 @@ export default function Dashboard() {
       // Cache the result
       userCache.set(userId, userDetails);
       return userDetails;
-    } catch (_error) {
+    } catch {
       // Return a fallback user details
       const fallbackUser = {
         firstName: 'Unknown',
@@ -209,7 +209,7 @@ export default function Dashboard() {
                       userName
                     };
                   }
-                } catch (_error) {
+                } catch {
                   // Keep default values if fetch fails
                 }
               }
